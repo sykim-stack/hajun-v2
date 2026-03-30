@@ -23,6 +23,7 @@ const SYSTEM_PROMPT = `너는 하준AI다. 1인 개발자 김상열의 개발 �
 프로젝트: {name}
 마지막 작업: {last_task}
 요약: {summary}
+최근 작업: {Recent Work Logs 핵심만 2~3줄 요약}
 다음 할 것: {next_tasks}
 ==============`
 
