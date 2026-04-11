@@ -271,3 +271,5 @@ export default function Home() {
     </div>
   )
 }
+
+<script src="/js/brainpool-debug.js" />
