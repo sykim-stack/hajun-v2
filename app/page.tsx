@@ -3,11 +3,14 @@
 import { useState, useRef, useEffect } from 'react'
 
 const PROJECTS = [
-  { id: '82423554-fa71-42cc-a297-90a65747113b', name: 'HajunAI', emoji: '🧠', color: '#ff9d00' },
-  { id: 'c38f5b9a-14ab-4a36-85e2-b58289a4e4e6', name: 'CoreRing', emoji: '🌐', color: '#00ff9d' },
-  { id: '13196994-00d5-4d7f-9436-619f07f5bd45', name: 'CoreChat', emoji: '💬', color: '#ff6b9d' },
-  { id: '66666666-0000-0000-0000-000000000006', name: 'CoreNull', emoji: '🏘️', color: '#f0b429' },
-]
+    { id: '82423554-fa71-42cc-a297-90a65747113b', name: 'HajunAI',   emoji: '🧠', color: '#ff9d00' },
+    { id: 'c38f5b9a-14ab-4a36-85e2-b58289a4e4e6', name: 'CoreRing',  emoji: '🌐', color: '#00ff9d' },
+    { id: '13196994-00d5-4d7f-9436-619f07f5bd45', name: 'CoreChat',  emoji: '💬', color: '#ff6b9d' },
+    { id: '66666666-0000-0000-0000-000000000006', name: 'CoreNull',  emoji: '🏘️', color: '#f0b429' },
+    { id: '0a385ad1-4735-4967-978c-3a9aa7588613', name: 'CoreRoad',  emoji: '🛵', color: '#00c8ff' },
+    { id: '8f7e37b0-a19b-448f-a568-5bd8fd6bb3ff', name: 'CoreHub',   emoji: '🏊', color: '#ffd700' },
+    { id: '2a9aa9b2-6eaa-4386-a8af-8345e9c4a4d2', name: 'MindWorld', emoji: '🧩', color: '#bf7fff' },
+  
 
 const TTL = 24 * 60 * 60 * 1000
 const CACHE_TTL = 10 * 60 * 1000
