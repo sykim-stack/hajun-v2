@@ -3,16 +3,14 @@
 import { useState, useRef, useEffect } from 'react'
 
 const PROJECTS = [
-  { id: '82423554-fa71-42cc-a297-90a65747113b', name: 'HajunAI',   emoji: '🧠', color: '#ff9d00' },
-  { id: 'c38f5b9a-14ab-4a36-85e2-b58289a4e4e6', name: 'CoreRing',  emoji: '🌐', color: '#00ff9d' },
-  { id: '13196994-00d5-4d7f-9436-619f07f5bd45', name: 'CoreChat',  emoji: '💬', color: '#ff6b9d' },
-  { id: '66666666-0000-0000-0000-000000000006', name: 'CoreNull',  emoji: '🏘️', color: '#f0b429' },
-  { id: '0a385ad1-4735-4967-978c-3a9aa7588613', name: 'CoreRoad',  emoji: '🛵', color: '#00c8ff' },
-  { id: '8f7e37b0-a19b-448f-a568-5bd8fd6bb3ff', name: 'CoreHub',   emoji: '🏊', color: '#ffd700' },
-  { id: '2a9aa9b2-6eaa-4386-a8af-8345e9c4a4d2', name: 'MindWorld', emoji: '🧩', color: '#bf7fff' },
+  { id: '82423554-fa71-42cc-a297-90a65747113b', name: 'HajunAI', emoji: '🧠', color: '#ff9d00' },
+  { id: 'c38f5b9a-14ab-4a36-85e2-b58289a4e4e6', name: 'CoreRing', emoji: '🌐', color: '#00ff9d' },
+  { id: '13196994-00d5-4d7f-9436-619f07f5bd45', name: 'CoreChat', emoji: '💬', color: '#ff6b9d' },
+  { id: '66666666-0000-0000-0000-000000000006', name: 'CoreNull', emoji: '🏘️', color: '#f0b429' },
 ]
 
 const TTL = 24 * 60 * 60 * 1000
+const CACHE_TTL = 10 * 60 * 1000
 
 interface Msg {
   role: 'user' | 'assistant'
@@ -31,10 +29,7 @@ function loadChat(pid: string): Msg[] {
     const raw = localStorage.getItem(`hj2_${pid}`)
     if (!raw) return []
     const { msgs, savedAt } = JSON.parse(raw)
-    if (Date.now() - savedAt > TTL) {
-      localStorage.removeItem(`hj2_${pid}`)
-      return []
-    }
+    if (Date.now() - savedAt > TTL) return []
     return msgs
   } catch { return [] }
 }
@@ -42,13 +37,13 @@ function loadChat(pid: string): Msg[] {
 function saveChat(pid: string, msgs: Msg[]) {
   try {
     localStorage.setItem(`hj2_${pid}`, JSON.stringify({
-      msgs: msgs.slice(-50),
+      msgs: msgs.slice(-60),
       savedAt: Date.now()
     }))
   } catch {}
 }
 
-/* ---------------- 상태 저장 ---------------- */
+/* ---------------- 상태 ---------------- */
 
 const STATE_KEY = (pid: string) => `hj2_state_${pid}`
 
@@ -56,7 +51,7 @@ function saveState(pid: string, msgs: Msg[]) {
   try {
     const decisions = msgs
       .filter(m => m.state?.decision)
-      .slice(-10)
+      .slice(-15)
       .map(m => m.state?.decision)
 
     localStorage.setItem(STATE_KEY(pid), JSON.stringify({
@@ -81,7 +76,6 @@ export default function Home() {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -100,20 +94,22 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [msgs, project.id])
 
-  /* 메시지 압축 */
+  /* 세션 압축 */
   useEffect(() => {
-    if (msgs.length > 40) {
-      const recent = msgs.slice(-20)
+    if (msgs.length > 50) {
+      const recent = msgs.slice(-25)
+
       const compressed: Msg = {
         role: 'assistant',
-        content: `🧠 세션 압축 (${msgs.length} → 20)`,
+        content: `🧠 세션 자동 압축 (${msgs.length} → 25)`,
         state: { intent: 'compress' }
       }
+
       setMsgs([compressed, ...recent])
     }
   }, [msgs])
 
-  /* Debug 로드 */
+  /* Debug 강제 */
   useEffect(() => {
     const s = document.createElement('script')
     s.src = '/js/brainpool-debug.js'
@@ -132,7 +128,7 @@ export default function Home() {
 
     let contextMsgs = [...msgs]
 
-    /* 이어줘 */
+    /* 이어줘 강화 */
     if (text === '이어줘') {
       const state = loadState(project.id)
       if (state?.last_decisions?.length) {
@@ -149,12 +145,15 @@ export default function Home() {
 
     try {
       const CACHE_KEY = `hj2_cache_${project.id}_${text}`
-      const cached = localStorage.getItem(CACHE_KEY)
 
+      const cached = localStorage.getItem(CACHE_KEY)
       if (cached) {
-        setMsgs(prev => [...prev, JSON.parse(cached)])
-        setLoading(false)
-        return
+        const { data, time } = JSON.parse(cached)
+        if (Date.now() - time < CACHE_TTL) {
+          setMsgs(prev => [...prev, data])
+          setLoading(false)
+          return
+        }
       }
 
       const res = await fetch('/api/chat', {
@@ -171,32 +170,52 @@ export default function Home() {
         content: answer,
         source: data.source,
         state: {
-          intent: text.slice(0, 30),
-          decision: answer.slice(0, 60)
+          intent: text.slice(0, 40),
+          decision: answer.slice(0, 80)
         }
       }
 
       setMsgs(prev => [...prev, msg])
 
-      localStorage.setItem(CACHE_KEY, JSON.stringify(msg))
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        data: msg,
+        time: Date.now()
+      }))
 
     } catch {
-      setMsgs(prev => [...prev, { role: 'assistant', content: '❌ 네트워크 오류' }])
+      setMsgs(prev => [...prev, {
+        role: 'assistant',
+        content: '❌ 네트워크 오류'
+      }])
     } finally {
       setLoading(false)
     }
   }
 
-  /* UI는 기존 그대로 유지 */
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0a0c10', color: '#e2e8f0' }}>
-      
-      {/* 헤더 */}
-      <div style={{ padding: '12px 16px', display: 'flex', gap: '10px' }}>
-        <span>{project.emoji}</span>
-        <div style={{ flex: 1 }}>{project.name}</div>
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100dvh',
+      background: '#0a0c10', color: '#e2e8f0'
+    }}>
 
+      {/* 🔥 헤더 */}
+      <div style={{
+        padding: '12px 16px',
+        borderBottom: '1px solid #1e2530',
+        display: 'flex', alignItems: 'center', gap: '10px'
+      }}>
+        <span style={{ fontSize: '18px' }}>🧠</span>
+
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '14px', fontWeight: 700 }}>
+            HajunAI Console
+          </div>
+          <div style={{ fontSize: '10px', color: '#4a5568' }}>
+            BRAINPOOL SYSTEM
+          </div>
+        </div>
+
+        {/* 🔥 복구 버튼 */}
         <button onClick={() => {
           const state = loadState(project.id)
           if (state?.last_decisions) {
@@ -208,16 +227,18 @@ export default function Home() {
         }}>복구</button>
       </div>
 
-      {/* 메시지 영역 */}
+      {/* 메시지 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
         {msgs.map((m, i) => (
-          <div key={i}>{m.content}</div>
+          <div key={i} style={{ marginBottom: '10px' }}>
+            {m.content}
+          </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
       {/* 입력 */}
-      <div style={{ padding: '12px' }}>
+      <div style={{ padding: '12px', borderTop: '1px solid #1e2530' }}>
         <textarea
           ref={inputRef}
           value={input}
@@ -228,9 +249,12 @@ export default function Home() {
               send()
             }
           }}
+          rows={1}
+          style={{ width: '80%' }}
         />
         <button onClick={send}>전송</button>
       </div>
+
     </div>
   )
 }
