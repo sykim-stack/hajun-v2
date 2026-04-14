@@ -1,13 +1,11 @@
-// hajunai-v3.3 — 문제 누적 + Action Router 확장 (비침투)
+// hajunai-v3.4 — Dev/Control + Action Router + 타입 안정화 (배포용)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// ─── 환경 변수 검증 ─────────────────────────────────────────
+// ─── 환경 변수 ─────────────────────────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN
-const GITHUB_REPO  = process.env.GITHUB_REPO
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 
@@ -15,13 +13,16 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Missing Supabase credentials')
 }
 
-// ─── 캐시 ─────────────────────────────────────────
-let githubCache: { data: any[]; timestamp: number } | null = null
-const CACHE_TTL = 5 * 60 * 1000
+// ─── 타입 ─────────────────────────────────────────
+interface ChatRequest {
+  message: string
+  project_id: string
+  mode?: 'dev' | 'control'
+}
 
 // ─── Supabase ─────────────────────────────────────
 function getSupabaseClient(authHeader?: string | null): SupabaseClient {
-  if (authHeader && authHeader.startsWith('Bearer ')) {
+  if (authHeader?.startsWith('Bearer ')) {
     const jwt = authHeader.slice(7)
     return createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
       global: { headers: { Authorization: `Bearer ${jwt}` } }
@@ -30,25 +31,20 @@ function getSupabaseClient(authHeader?: string | null): SupabaseClient {
   return createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
 }
 
-const CORE_FILES = ['api/rooms.js', 'house.html']
+// ─── Action Router ─────────────────────────────────
+function routeAction(text: string) {
+  if (!text) return null
 
-// ─── Action Router (확장 추가) ─────────────────────
-function routeAction(decision: string) {
-  if (!decision) return null
-
-  if (decision.includes('번역') || decision.includes('언어')) {
+  if (text.includes('번역') || text.includes('언어')) {
     return { action: 'CoreRing', type: 'translate' }
   }
-
-  if (decision.includes('갈등') || decision.includes('오해')) {
+  if (text.includes('갈등') || text.includes('오해')) {
     return { action: 'CoreChat', type: 'guide' }
   }
-
-  if (decision.includes('이동') || decision.includes('배달')) {
+  if (text.includes('이동') || text.includes('배달')) {
     return { action: 'CoreRoad', type: 'route' }
   }
-
-  if (decision.includes('운영') || decision.includes('관리')) {
+  if (text.includes('운영') || text.includes('관리')) {
     return { action: 'CoreHub', type: 'manage' }
   }
 
@@ -61,17 +57,40 @@ export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('authorization')
     const supabase = getSupabaseClient(authHeader)
 
-    const { message, project_id } = await req.json()
+    const { message, project_id, mode = 'dev' }: ChatRequest = await req.json()
+
     if (!message || !project_id) {
       return NextResponse.json({ error: '필수값 누락' }, { status: 400 })
     }
 
-    const [context] = await Promise.all([
-      loadContext(supabase, project_id)
-    ])
+    const context = await loadContext(supabase, project_id)
 
-    const systemPrompt = `[USER CONTEXT]\n${context}`
+    // ─── 프롬프트 분기 ─────────────────────────
+    let systemPrompt = ''
 
+    if (mode === 'dev') {
+      systemPrompt = `
+[USER CONTEXT]
+${context}
+
+규칙:
+- 이전 작업을 이어서 진행
+- 새로 시작 금지
+- 반드시 다음 작업 1개 제시
+`
+    } else {
+      systemPrompt = `
+[USER CONTEXT]
+${context}
+
+규칙:
+- 문제 분석
+- 해결 여부 판단
+- 상태 정리
+`
+    }
+
+    // ─── AI 호출 ─────────────────────────
     let answer: string | null = await askGroq(systemPrompt, message)
     if (!answer) answer = await askGemini(systemPrompt, message)
 
@@ -79,9 +98,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI 응답 실패' }, { status: 503 })
     }
 
-    await updateProblemStatus(supabase, project_id, answer)
+    // ─── Action Router 결과 ─────────────────
+    let actions: string[] = []
 
-    return NextResponse.json({ answer })
+    if (mode === 'control') {
+      actions = await updateProblemStatus(supabase, project_id, answer)
+    }
+
+    // ─── Dev Mode 흐름 유지 ─────────────────
+    if (mode === 'dev') {
+      answer += `
+
+👉 다음 작업:
+- 이어서 진행할 작업 1개`
+    }
+
+    return NextResponse.json({
+      answer,
+      actions
+    })
 
   } catch (err) {
     console.error(err)
@@ -100,28 +135,20 @@ async function loadContext(supabase: SupabaseClient, project_id: string): Promis
   return JSON.stringify(data || {})
 }
 
-// ─── 문제 정규화 ─────────────────────────────────
-function normalizeProblems(raw: string): string {
-  if (!raw) return ''
-  return raw.split('\n')
-    .filter(Boolean)
-    .map(line => line.includes('status:') ? line : `${line} | status: open`)
-    .join('\n')
-}
-
-// ─── 문제 상태 업데이트 (확장됨) ─────────────────
+// ─── 문제 상태 업데이트 ─────────────────────────
 async function updateProblemStatus(
   supabase: SupabaseClient,
   project_id: string,
   aiAnswer: string
-) {
+): Promise<string[]> {
+
   const { data: ctx } = await supabase
     .from('contexts')
     .select('current_problems')
     .eq('project_id', project_id)
     .single()
 
-  if (!ctx?.current_problems) return
+  if (!ctx?.current_problems) return []
 
   const problems: string[] = (ctx.current_problems || '')
     .split('\n')
@@ -143,10 +170,9 @@ async function updateProblemStatus(
     if (isSolved) {
       const solution = aiAnswer.slice(0, 100).replace(/\n/g, ' ')
 
-      // 🔥 Action Router
       const route = routeAction(problemText)
       if (route) {
-        actionLogs.push(`[ACTION] ${route.action} → ${route.type} | ${problemText}`)
+        actionLogs.push(`👉 추천: ${route.action} (${route.type})`)
       }
 
       return `${problem} | status: solved | solution: ${solution}`
@@ -162,17 +188,10 @@ async function updateProblemStatus(
       .eq('project_id', project_id)
   }
 
-  // 🔥 Action 로그 기록 (비침투)
-  if (actionLogs.length > 0) {
-    await supabase.from('messages').insert({
-      project_id,
-      role: 'assistant',
-      content: actionLogs.join('\n')
-    })
-  }
+  return actionLogs
 }
 
-// ─── AI 호출 ─────────────────────────────────────
+// ─── AI ─────────────────────────────────────────
 async function askGroq(sys: string, user: string) {
   if (!GROQ_API_KEY) return null
   try {
@@ -180,7 +199,7 @@ async function askGroq(sys: string, user: string) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`
+        Authorization: `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
