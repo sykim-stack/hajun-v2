@@ -162,7 +162,7 @@ export default function Home() {
       {/* 메시지 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
         {msgs.map((m, i) => (
-          <div key={i} style={{ marginBottom: '10px', lineHeight: '1.5' }}>
+          <div key={i} style={{ marginBottom: '10px' }}>
             {m.content}
           </div>
         ))}
@@ -174,7 +174,7 @@ export default function Home() {
         padding: '12px',
         borderTop: '1px solid #1e2530'
       }}>
-        <textarea style={{ width: '80%', background: '#111', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '8px' }}
+        <textarea 
           ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
@@ -187,13 +187,7 @@ export default function Home() {
           rows={1}
           style={{ width: '80%' }}
         />
-        <button style={{
-    background: '#2563eb',
-    color: '#fff',
-    border: 'none',
-    padding: '6px 10px',
-    borderRadius: '6px'
-  }}onClick={send}>전송</button>
+        <button onClick={send}>전송</button>
       </div>
 
     </div>
