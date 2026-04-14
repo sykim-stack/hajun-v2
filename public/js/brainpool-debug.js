@@ -144,7 +144,7 @@
         50%     { box-shadow:0 0 0 7px rgba(248,81,73,0); }
       }
       #__bp_badge {
-        position:fixed; bottom:80px; right:16px; z-index:99998;
+        position:fixed; top:60px; right:16px; z-index:99998;
         width:22px; height:22px; border-radius:50%;
         background:#f85149; border:2px solid #fff;
         cursor:pointer; display:none;
@@ -276,27 +276,7 @@
       `<div class="bl ${CLS[l.type]||''}"><span class="t">${l.t}</span><span class="m">${esc(l.msg)}</span></div>`
     ).join('') || '<div style="padding:10px;color:#484f58;">로그 없음</div>';
   }
-  function logDecisionFlow(input, mind, output) {
-    const log = {
-        time: new Date().toLocaleTimeString(),
-        input: input.slice(0, 30) + "...",
-        mind: mind, // {summary, state, issue, next_action}
-        output: output.slice(0, 30) + "..."
-    };
 
-    // 브라우저 콘솔에 시각적 관제 레이아웃 출력
-    console.log(
-        `%c [Decision Flow] ${log.time} `, 
-        "background: #2c3e50; color: #ecf0f1; font-weight: bold;"
-    );
-    console.table({
-        "1. INPUT": log.input,
-        "2. THINK (Summary)": log.mind.summary,
-        "2. THINK (State)": log.mind.state,
-        "2. THINK (Action)": log.mind.next_action,
-        "3. OUTPUT": log.output
-    });
-}
   function renderApiStats() {
     const el = document.getElementById('__bpa');
     if (!el) return;
