@@ -40,12 +40,11 @@ function saveChat(pid: string, msgs: Msg[]) {
 }
 
 export default function Home() {
-  const [project, setProject] = useState(PROJECTS[0])
+  // 단일 프로젝트 고정 (HajunAI)
+  const project = PROJECTS[0]
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-
-  // 🔥 추가: Dev / Control 모드
   const [mode, setMode] = useState<'dev' | 'control'>('dev')
 
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -76,7 +75,7 @@ export default function Home() {
         body: JSON.stringify({
           message: text,
           project_id: project.id,
-          mode // 🔥 핵심 전달
+          mode
         })
       })
 
@@ -101,79 +100,144 @@ export default function Home() {
     }
   }
 
-  return (
-    <div style={{
+  // ========== 스타일 객체 (요청하신 ui 스타일) ==========
+  const ui = {
+    container: {
       display: 'flex',
       flexDirection: 'column',
       height: '100dvh',
       background: '#0a0c10',
-      color: '#e2e8f0'
-    }}>
+      color: '#e2e8f0',
+      fontFamily: 'system-ui'
+    },
+    header: {
+      padding: '12px 16px',
+      borderBottom: '1px solid #1e2530',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    },
+    logo: {
+      fontWeight: 700,
+      fontSize: '16px'
+    },
+    toggle: {
+      display: 'flex',
+      gap: '6px'
+    },
+    toggleBtn: {
+      background: '#1e2530',
+      color: '#aaa',
+      border: 'none',
+      padding: '6px 10px',
+      borderRadius: '8px',
+      cursor: 'pointer'
+    },
+    toggleActive: {
+      background: '#2563eb',
+      color: '#fff',
+      boxShadow: '0 0 8px rgba(37,99,235,0.5)'
+    },
+    chat: {
+      flex: 1,
+      overflowY: 'auto',
+      padding: '16px'
+    },
+    userRow: {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      marginBottom: '10px'
+    },
+    aiRow: {
+      display: 'flex',
+      justifyContent: 'flex-start',
+      marginBottom: '10px'
+    },
+    userMsg: {
+      background: '#2563eb',
+      padding: '10px 12px',
+      borderRadius: '12px',
+      maxWidth: '70%',
+      whiteSpace: 'pre-wrap'
+    },
+    aiMsg: {
+      background: '#1e2530',
+      padding: '10px 12px',
+      borderRadius: '12px',
+      maxWidth: '70%',
+      whiteSpace: 'pre-wrap'
+    },
+    inputWrap: {
+      display: 'flex',
+      padding: '12px',
+      borderTop: '1px solid #1e2530',
+      gap: '8px'
+    },
+    input: {
+      flex: 1,
+      background: '#1e2530',
+      border: 'none',
+      color: '#fff',
+      padding: '10px',
+      borderRadius: '8px',
+      resize: 'none',
+      fontFamily: 'inherit'
+    },
+    sendBtn: {
+      background: '#2563eb',
+      border: 'none',
+      padding: '10px 14px',
+      borderRadius: '8px',
+      color: '#fff',
+      cursor: 'pointer'
+    }
+  }
+  // =================================================
 
-      {/* 🔥 헤더 */}
-      <div style={{
-        padding: '12px 16px',
-        borderBottom: '1px solid #1e2530',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px'
-      }}>
-
-        <span>🧠</span>
-
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700 }}>HajunAI Console</div>
-          <div style={{ fontSize: '10px', color: '#4a5568' }}>
-            BRAINPOOL SYSTEM
-          </div>
-        </div>
-
-        {/* 🔥 토글 버튼 */}
-        <div style={{ display: 'flex', gap: '6px' }}>
+  return (
+    <div style={ui.container}>
+      {/* 헤더 */}
+      <div style={ui.header}>
+        <div style={ui.logo}>🧠 HajunAI</div>
+        <div style={ui.toggle}>
           <button
             onClick={() => setMode('dev')}
             style={{
-              background: mode === 'dev' ? '#2563eb' : '#1e2530',
-              color: '#fff',
-              padding: '4px 8px',
-              borderRadius: '6px',
-              border: 'none'
+              ...ui.toggleBtn,
+              ...(mode === 'dev' ? ui.toggleActive : {})
             }}
           >
             🛠 Dev
           </button>
-
           <button
             onClick={() => setMode('control')}
             style={{
-              background: mode === 'control' ? '#2563eb' : '#1e2530',
-              color: '#fff',
-              padding: '4px 8px',
-              borderRadius: '6px',
-              border: 'none'
+              ...ui.toggleBtn,
+              ...(mode === 'control' ? ui.toggleActive : {})
             }}
           >
             📊 Control
           </button>
         </div>
-
       </div>
 
-      {/* 메시지 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      {/* 메시지 영역 */}
+      <div style={ui.chat}>
         {msgs.map((m, i) => (
-          <div key={i} style={{ marginBottom: '10px' }}>
-            {m.content}
+          <div
+            key={i}
+            style={m.role === 'user' ? ui.userRow : ui.aiRow}
+          >
+            <div style={m.role === 'user' ? ui.userMsg : ui.aiMsg}>
+              {m.content}
+            </div>
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
-      {/* 입력 */}
-      <div style={{
-        padding: '12px',
-        borderTop: '1px solid #1e2530'
-      }}>
+      {/* 입력창 */}
+      <div style={ui.inputWrap}>
         <textarea
           ref={inputRef}
           value={input}
@@ -185,213 +249,13 @@ export default function Home() {
             }
           }}
           rows={1}
-          style={{ width: '80%' }}
+          style={ui.input}
+          placeholder="메시지를 입력하세요..."
         />
-        <button onClick={send}>전송</button>
-      </div>
-
-    </div>
-  )
-}
-
-'use client'
-
-import { useState, useRef, useEffect } from 'react'
-
-const PROJECTS = [
-  { id: '1', name: 'HajunAI', emoji: '🧠' }
-]
-
-interface Msg {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-export default function Home() {
-  const [msgs, setMsgs] = useState<Msg[]>([])
-  const [input, setInput] = useState('')
-  const [mode, setMode] = useState<'dev' | 'control'>('dev')
-  const bottomRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [msgs])
-
-  const send = () => {
-    if (!input.trim()) return
-
-    setMsgs(prev => [
-      ...prev,
-      { role: 'user', content: input },
-      { role: 'assistant', content: '응답 예시입니다.\n👉 다음 작업:\n- API 수정' }
-    ])
-    setInput('')
-  }
-
-  return (
-    <div style={styles.container}>
-
-      {/* 헤더 */}
-      <div style={styles.header}>
-        <div style={styles.logo}>🧠 HajunAI</div>
-
-        <div style={styles.toggle}>
-          <button
-            onClick={() => setMode('dev')}
-            style={mode === 'dev' ? styles.activeBtn : styles.btn}
-          >
-            🛠 Dev
-          </button>
-          <button
-            onClick={() => setMode('control')}
-            style={mode === 'control' ? styles.activeBtn : styles.btn}
-          >
-            📊 Control
-          </button>
-        </div>
-      </div>
-
-      {/* 메시지 영역 */}
-      <div style={styles.chat}>
-        {msgs.map((m, i) => (
-          <div
-            key={i}
-            style={m.role === 'user' ? styles.userWrap : styles.aiWrap}
-          >
-            <div style={m.role === 'user' ? styles.userMsg : styles.aiMsg}>
-              {m.content}
-            </div>
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* 입력 */}
-      <div style={styles.inputWrap}>
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          style={styles.input}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              send()
-            }
-          }}
-        />
-        <button onClick={send} style={styles.sendBtn}>
+        <button onClick={send} style={ui.sendBtn}>
           전송
         </button>
       </div>
-
     </div>
   )
-}
-
-const styles: Record<string, any> = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100dvh',
-    background: '#0a0c10',
-    color: '#e2e8f0',
-    fontFamily: 'system-ui'
-  },
-
-  header: {
-    padding: '12px 16px',
-    borderBottom: '1px solid #1e2530',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-
-  logo: {
-    fontWeight: 700,
-    fontSize: '16px'
-  },
-
-  toggle: {
-    display: 'flex',
-    gap: '6px'
-  },
-
-  btn: {
-    background: '#1e2530',
-    color: '#aaa',
-    border: 'none',
-    padding: '6px 10px',
-    borderRadius: '8px',
-    cursor: 'pointer'
-  },
-
-  activeBtn: {
-    background: '#2563eb',
-    color: '#fff',
-    border: 'none',
-    padding: '6px 10px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    boxShadow: '0 0 8px rgba(37,99,235,0.5)'
-  },
-
-  chat: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '16px'
-  },
-
-  userWrap: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    marginBottom: '10px'
-  },
-
-  aiWrap: {
-    display: 'flex',
-    justifyContent: 'flex-start',
-    marginBottom: '10px'
-  },
-
-  userMsg: {
-    background: '#2563eb',
-    padding: '10px 12px',
-    borderRadius: '12px',
-    maxWidth: '70%',
-    whiteSpace: 'pre-wrap'
-  },
-
-  aiMsg: {
-    background: '#1e2530',
-    padding: '10px 12px',
-    borderRadius: '12px',
-    maxWidth: '70%',
-    whiteSpace: 'pre-wrap'
-  },
-
-  inputWrap: {
-    display: 'flex',
-    padding: '12px',
-    borderTop: '1px solid #1e2530',
-    gap: '8px'
-  },
-
-  input: {
-    flex: 1,
-    background: '#1e2530',
-    border: 'none',
-    color: '#fff',
-    padding: '10px',
-    borderRadius: '8px',
-    resize: 'none'
-  },
-
-  sendBtn: {
-    background: '#2563eb',
-    border: 'none',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    color: '#fff',
-    cursor: 'pointer'
-  }
 }
