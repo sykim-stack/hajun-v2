@@ -9,9 +9,7 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Missing Supabase credentials')
-}
+// Supabase 자격증명은 런타임에서 검증 (빌드 시 throw 방지)
 
 // ─── 타입 ─────────────────────────────────────────
 interface ChatRequest {
@@ -54,6 +52,9 @@ function routeAction(text: string) {
 // ─── 메인 ─────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return NextResponse.json({ error: 'Supabase 자격증명이 설정되지 않았습니다. 설정 페이지를 확인하세요.' }, { status: 503 })
+    }
     const authHeader = req.headers.get('authorization')
     const supabase = getSupabaseClient(authHeader)
 

@@ -1,159 +1,105 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-
-const PROJECTS = [
-  { id: '82423554-fa71-42cc-a297-90a65747113b', name: 'HajunAI' },
-  { id: 'c38f5b9a-14ab-4a36-85e2-b58289a4e4e6', name: 'CoreRing' },
-  { id: '13196994-00d5-4d7f-9436-619f07f5bd45', name: 'CoreChat' },
-  { id: '66666666-0000-0000-0000-000000000006', name: 'CoreNull' },
-  { id: '0a385ad1-4735-4967-978c-3a9aa7588613', name: 'CoreRoad' },
-  { id: '8f7e37b0-a19b-448f-a568-5bd8fd6bb3ff', name: 'CoreHub' },
-  { id: '2a9aa9b2-6eaa-4386-a8af-8345e9c4a4d2', name: 'MindWorld' },
-]
-
-interface Context {
-  projectId: string
-  summary: string
-  lastTask: string
-  nextAction: string
-  updatedAt: string
-}
+import { PROJECTS, COLORS } from '@/lib/constants'
+import { loadContexts, saveContexts, Context } from '@/lib/storage'
 
 export default function ContextsPage() {
-  const [contexts, setContexts] = useState<Record<string, Context>>({})
+  const [contexts, setContexts]   = useState<Record<string, Context>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editData, setEditData] = useState<Partial<Context>>({})
+  const [editData, setEditData]   = useState<Partial<Context>>({})
+  const [toast, setToast]         = useState<string | null>(null)
 
-  // 로컬스토리지에서 컨텍스트 로드
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('contexts')
-      if (stored) setContexts(JSON.parse(stored))
-    } catch {}
-  }, [])
+  useEffect(() => { setContexts(loadContexts()) }, [])
 
-  const saveContexts = (updated: Record<string, Context>) => {
+  const showToast = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2000)
+  }
+
+  const persist = (updated: Record<string, Context>) => {
     setContexts(updated)
-    localStorage.setItem('contexts', JSON.stringify(updated))
+    saveContexts(updated)
   }
 
   const updateContext = (projectId: string, data: Partial<Context>) => {
+    const prev = contexts[projectId]
     const updated = {
       ...contexts,
       [projectId]: {
         projectId,
-        summary: data.summary || contexts[projectId]?.summary || '',
-        lastTask: data.lastTask || contexts[projectId]?.lastTask || '',
-        nextAction: data.nextAction || contexts[projectId]?.nextAction || '',
-        updatedAt: new Date().toISOString()
-      }
+        summary:    data.summary    ?? prev?.summary    ?? '',
+        lastTask:   data.lastTask   ?? prev?.lastTask   ?? '',
+        nextAction: data.nextAction ?? prev?.nextAction ?? '',
+        updatedAt:  new Date().toISOString(),
+      },
     }
-    saveContexts(updated)
+    persist(updated)
     setEditingId(null)
+    showToast('✅ 맥락 저장됨')
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0a0c10', color: '#e2e8f0' }}>
-      
-      {/* 헤더 */}
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid #1e2530', display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <Link href="/" style={{ color: '#2563eb', textDecoration: 'none' }}>← 홈</Link>
-        <span>📊 맥락 대시보드</span>
-      </div>
+    <div className="page-shell">
+      <header className="page-header">
+        <Link href="/" className="back-link">← 홈</Link>
+        <span className="page-title">📊 맥락 대시보드</span>
+      </header>
 
-      {/* 콘텐츠 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-        <h3>프로젝트별 맥락 (Context)</h3>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+      {toast && <div className="toast">{toast}</div>}
+
+      <div className="page-body">
+        <div className="ctx-grid">
           {PROJECTS.map(project => {
-            const ctx = contexts[project.id]
+            const ctx       = contexts[project.id]
             const isEditing = editingId === project.id
-
             return (
-              <div key={project.id} style={{ padding: '16px', background: '#1e2530', borderRadius: '8px', borderLeft: '4px solid #2563eb' }}>
-                <div style={{ fontWeight: 600, marginBottom: '12px' }}>{project.name}</div>
+              <div key={project.id} className="ctx-card">
+                <div className="ctx-card-header">
+                  <span>{project.emoji}</span>
+                  <span className="ctx-card-name">{project.name}</span>
+                  {ctx?.updatedAt && (
+                    <span className="ctx-updated">{new Date(ctx.updatedAt).toLocaleDateString('ko-KR')}</span>
+                  )}
+                </div>
 
                 {isEditing ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', color: '#4a5568' }}>요약</label>
-                      <textarea
-                        value={editData.summary || ''}
-                        onChange={(e) => setEditData({ ...editData, summary: e.target.value })}
-                        style={{ width: '100%', padding: '8px', background: '#0a0c10', color: '#e2e8f0', border: '1px solid #2d3748', borderRadius: '4px', minHeight: '60px', marginTop: '4px' }}
-                      />
+                  <div className="ctx-edit-form">
+                    <div className="form-group">
+                      <label className="form-label">요약</label>
+                      <textarea value={editData.summary || ''} onChange={e => setEditData({ ...editData, summary: e.target.value })}
+                        className="form-textarea" rows={2} />
                     </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', color: '#4a5568' }}>마지막 작업</label>
-                      <input
-                        type="text"
-                        value={editData.lastTask || ''}
-                        onChange={(e) => setEditData({ ...editData, lastTask: e.target.value })}
-                        style={{ width: '100%', padding: '8px', background: '#0a0c10', color: '#e2e8f0', border: '1px solid #2d3748', borderRadius: '4px', marginTop: '4px' }}
-                      />
+                    <div className="form-group">
+                      <label className="form-label">마지막 작업</label>
+                      <input type="text" value={editData.lastTask || ''} onChange={e => setEditData({ ...editData, lastTask: e.target.value })}
+                        className="form-input" />
                     </div>
-
-                    <div>
-                      <label style={{ fontSize: '12px', color: '#4a5568' }}>다음 행동</label>
-                      <input
-                        type="text"
-                        value={editData.nextAction || ''}
-                        onChange={(e) => setEditData({ ...editData, nextAction: e.target.value })}
-                        style={{ width: '100%', padding: '8px', background: '#0a0c10', color: '#e2e8f0', border: '1px solid #2d3748', borderRadius: '4px', marginTop: '4px' }}
-                      />
+                    <div className="form-group">
+                      <label className="form-label">다음 행동 (next_action)</label>
+                      <input type="text" value={editData.nextAction || ''} onChange={e => setEditData({ ...editData, nextAction: e.target.value })}
+                        className="form-input" placeholder="아이디어 반영확정 시 자동 등록됩니다" />
                     </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => updateContext(project.id, editData)}
-                        style={{ flex: 1, padding: '8px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        저장
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        style={{ flex: 1, padding: '8px', background: '#4a5568', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        취소
-                      </button>
+                    <div className="ctx-edit-actions">
+                      <button onClick={() => updateContext(project.id, editData)} className="btn-primary">저장</button>
+                      <button onClick={() => setEditingId(null)} className="btn-secondary">취소</button>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div>
-                      <div style={{ fontSize: '10px', color: '#4a5568' }}>요약</div>
-                      <div style={{ fontSize: '12px', marginTop: '4px', minHeight: '40px' }}>
-                        {ctx?.summary || '(없음)'}
-                      </div>
+                  <div className="ctx-view">
+                    <div className="ctx-field">
+                      <span className="ctx-field-label">요약</span>
+                      <span className="ctx-field-value">{ctx?.summary || '(없음)'}</span>
                     </div>
-
-                    <div>
-                      <div style={{ fontSize: '10px', color: '#4a5568' }}>마지막 작업</div>
-                      <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                        {ctx?.lastTask || '(없음)'}
-                      </div>
+                    <div className="ctx-field">
+                      <span className="ctx-field-label">마지막 작업</span>
+                      <span className="ctx-field-value">{ctx?.lastTask || '(없음)'}</span>
                     </div>
-
-                    <div>
-                      <div style={{ fontSize: '10px', color: '#4a5568' }}>다음 행동</div>
-                      <div style={{ fontSize: '12px', marginTop: '4px', color: '#ffd700' }}>
-                        {ctx?.nextAction || '(없음)'}
-                      </div>
+                    <div className="ctx-field">
+                      <span className="ctx-field-label">다음 행동</span>
+                      <span className="ctx-field-value ctx-next-action">{ctx?.nextAction || '(없음)'}</span>
                     </div>
-
-                    <button
-                      onClick={() => {
-                        setEditingId(project.id)
-                        setEditData(ctx || {})
-                      }}
-                      style={{ width: '100%', padding: '8px', background: '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '8px' }}
-                    >
-                      수정
-                    </button>
+                    <button onClick={() => { setEditingId(project.id); setEditData(ctx || {}) }} className="btn-edit">수정</button>
                   </div>
                 )}
               </div>
@@ -161,6 +107,37 @@ export default function ContextsPage() {
           })}
         </div>
       </div>
+
+      <style>{`
+        .page-shell { display: flex; flex-direction: column; min-height: 100dvh; background: ${COLORS.bg}; color: ${COLORS.text}; }
+        .page-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid ${COLORS.border}; }
+        .back-link { color: ${COLORS.accent}; text-decoration: none; font-size: 13px; }
+        .page-title { font-size: 15px; font-weight: 700; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a3a1a; color: ${COLORS.success}; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 999; border: 1px solid ${COLORS.success}44; }
+        .page-body { flex: 1; overflow-y: auto; padding: 16px; }
+        .ctx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+        .ctx-card { background: ${COLORS.surface}; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; border-left: 3px solid ${COLORS.accent}; }
+        .ctx-card-header { display: flex; align-items: center; gap: 8px; }
+        .ctx-card-name { font-size: 13px; font-weight: 700; flex: 1; }
+        .ctx-updated { font-size: 10px; color: ${COLORS.muted}; }
+        .ctx-view { display: flex; flex-direction: column; gap: 8px; }
+        .ctx-field { display: flex; flex-direction: column; gap: 2px; }
+        .ctx-field-label { font-size: 10px; color: ${COLORS.muted}; }
+        .ctx-field-value { font-size: 12px; color: ${COLORS.textSub}; min-height: 18px; }
+        .ctx-next-action { color: ${COLORS.warning}; font-weight: 600; }
+        .btn-edit { padding: 7px; background: ${COLORS.border}; color: ${COLORS.text}; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 4px; transition: background 0.15s; }
+        .btn-edit:hover { background: ${COLORS.accent}; }
+        .ctx-edit-form { display: flex; flex-direction: column; gap: 10px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-label { font-size: 11px; color: ${COLORS.muted}; font-weight: 600; }
+        .form-input, .form-textarea { padding: 8px 10px; background: ${COLORS.bg}; color: ${COLORS.text}; border: 1px solid ${COLORS.border}; border-radius: 6px; font-size: 12px; outline: none; width: 100%; box-sizing: border-box; transition: border-color 0.15s; font-family: inherit; }
+        .form-input:focus, .form-textarea:focus { border-color: ${COLORS.accent}; }
+        .form-textarea { resize: vertical; }
+        .ctx-edit-actions { display: flex; gap: 8px; }
+        .btn-primary { flex: 1; padding: 8px; background: ${COLORS.accent}; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .btn-secondary { flex: 1; padding: 8px; background: ${COLORS.border}; color: ${COLORS.text}; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        @media (max-width: 600px) { .ctx-grid { grid-template-columns: 1fr; } .page-body { padding: 12px; } }
+      `}</style>
     </div>
   )
 }

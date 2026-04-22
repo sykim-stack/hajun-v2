@@ -1,173 +1,86 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-
-const PROJECTS = [
-  { id: '82423554-fa71-42cc-a297-90a65747113b', name: 'HajunAI' },
-  { id: 'c38f5b9a-14ab-4a36-85e2-b58289a4e4e6', name: 'CoreRing' },
-  { id: '13196994-00d5-4d7f-9436-619f07f5bd45', name: 'CoreChat' },
-  { id: '66666666-0000-0000-0000-000000000006', name: 'CoreNull' },
-  { id: '0a385ad1-4735-4967-978c-3a9aa7588613', name: 'CoreRoad' },
-  { id: '8f7e37b0-a19b-448f-a568-5bd8fd6bb3ff', name: 'CoreHub' },
-  { id: '2a9aa9b2-6eaa-4386-a8af-8345e9c4a4d2', name: 'MindWorld' },
-]
-
-interface KPIData {
-  totalActions: number
-  executedActions: number
-  executionRate: number
-  ideaCount: number
-  confirmedIdeas: number
-  scheduledCount: number
-}
+import { PROJECTS, COLORS } from '@/lib/constants'
+import { calcKPI, KPIData } from '@/lib/storage'
 
 export default function KPIPage() {
   const [kpiData, setKpiData] = useState<Record<string, KPIData>>({})
 
-  useEffect(() => {
-    // 각 프로젝트별 KPI 계산
+  const refresh = () => {
     const data: Record<string, KPIData> = {}
-
-    PROJECTS.forEach(project => {
-      try {
-        // 아이디어 데이터 로드
-        const ideasRaw = localStorage.getItem(`ideas_${project.id}`)
-        const ideas = ideasRaw ? JSON.parse(ideasRaw) : []
-        const confirmedIdeas = ideas.filter((i: any) => i.status === '반영확정').length
-
-        // 일정 데이터 로드
-        const schedulesRaw = localStorage.getItem(`schedules_${project.id}`)
-        const schedules = schedulesRaw ? JSON.parse(schedulesRaw) : []
-
-        // 맥락 데이터 로드
-        const contextsRaw = localStorage.getItem('contexts')
-        const contexts = contextsRaw ? JSON.parse(contextsRaw) : {}
-        const context = contexts[project.id]
-
-        // KPI 계산 (더미 데이터 기반)
-        const totalActions = Math.max(ideas.length + schedules.length, 1)
-        const executedActions = confirmedIdeas + Math.floor(schedules.length * 0.6)
-        const executionRate = Math.round((executedActions / totalActions) * 100)
-
-        data[project.id] = {
-          totalActions,
-          executedActions,
-          executionRate,
-          ideaCount: ideas.length,
-          confirmedIdeas,
-          scheduledCount: schedules.length
-        }
-      } catch {
-        data[project.id] = {
-          totalActions: 0,
-          executedActions: 0,
-          executionRate: 0,
-          ideaCount: 0,
-          confirmedIdeas: 0,
-          scheduledCount: 0
-        }
-      }
-    })
-
+    PROJECTS.forEach(p => { data[p.id] = calcKPI(p.id) })
     setKpiData(data)
-  }, [])
-
-  const getColor = (rate: number) => {
-    if (rate >= 80) return '#00ff9d' // 초록색
-    if (rate >= 60) return '#ffd700' // 황색
-    if (rate >= 40) return '#ff9d00' // 주황색
-    return '#ff6b6b' // 빨강색
   }
 
-  const totalRate = PROJECTS.length > 0
-    ? Math.round(
-        PROJECTS.reduce((sum, p) => sum + (kpiData[p.id]?.executionRate || 0), 0) / PROJECTS.length
-      )
-    : 0
+  useEffect(() => {
+    refresh()
+    window.addEventListener('schedule-updated', refresh)
+    window.addEventListener('context-updated', refresh)
+    return () => {
+      window.removeEventListener('schedule-updated', refresh)
+      window.removeEventListener('context-updated', refresh)
+    }
+  }, [])
+
+  const getColor = (rate: number) =>
+    rate >= 80 ? COLORS.success : rate >= 60 ? COLORS.warning : rate >= 40 ? '#ff9d00' : COLORS.danger
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0a0c10', color: '#e2e8f0' }}>
-      
-      {/* 헤더 */}
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid #1e2530', display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <Link href="/" style={{ color: '#2563eb', textDecoration: 'none' }}>← 홈</Link>
-        <span>📈 Execution Rate KPI</span>
-      </div>
-
-      {/* 콘텐츠 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-        
-        {/* 전체 KPI */}
-        <div style={{ marginBottom: '20px', padding: '16px', background: '#1e2530', borderRadius: '8px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: '#4a5568', marginBottom: '8px' }}>전체 실행률</div>
-          <div style={{ fontSize: '48px', fontWeight: 700, color: getColor(totalRate), marginBottom: '8px' }}>
-            {totalRate}%
-          </div>
-          <div style={{ fontSize: '12px', color: '#4a5568' }}>
-            {PROJECTS.length}개 프로젝트 평균
-          </div>
-        </div>
-
-        {/* 프로젝트별 KPI */}
-        <h3>프로젝트별 Execution Rate</h3>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+    <div className="page-shell">
+      <header className="page-header">
+        <Link href="/" className="back-link">← 홈</Link>
+        <span className="page-title">📈 KPI 대시보드</span>
+        <button onClick={refresh} className="btn-refresh">새로고침</button>
+      </header>
+      <div className="page-body">
+        <div className="kpi-grid">
           {PROJECTS.map(project => {
             const kpi = kpiData[project.id]
             if (!kpi) return null
-
+            const color = getColor(kpi.executionRate)
             return (
-              <div key={project.id} style={{ padding: '12px', background: '#1e2530', borderRadius: '8px' }}>
-                <div style={{ fontWeight: 600, marginBottom: '12px' }}>{project.name}</div>
-
-                {/* 진행률 바 */}
-                <div style={{ marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px' }}>
-                    <span>실행률</span>
-                    <span style={{ color: getColor(kpi.executionRate), fontWeight: 600 }}>
-                      {kpi.executionRate}%
-                    </span>
-                  </div>
-                  <div style={{ width: '100%', height: '8px', background: '#0a0c10', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{
-                      width: `${kpi.executionRate}%`,
-                      height: '100%',
-                      background: getColor(kpi.executionRate),
-                      transition: 'width 0.3s ease'
-                    }} />
-                  </div>
+              <div key={project.id} className="kpi-card" style={{ borderLeftColor: color }}>
+                <div className="kpi-header">
+                  <span>{project.emoji}</span>
+                  <span className="kpi-name">{project.name}</span>
+                  <span className="kpi-rate" style={{ color }}>{kpi.executionRate}%</span>
                 </div>
-
-                {/* 상세 정보 */}
-                <div style={{ fontSize: '12px', color: '#4a5568', display: 'grid', gap: '6px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>💡 아이디어</span>
-                    <span>{kpi.ideaCount} (확정: {kpi.confirmedIdeas})</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>📅 일정</span>
-                    <span>{kpi.scheduledCount}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>✅ 실행</span>
-                    <span>{kpi.executedActions} / {kpi.totalActions}</span>
-                  </div>
+                <div className="kpi-bar-bg">
+                  <div className="kpi-bar-fill" style={{ width: `${kpi.executionRate}%`, background: color }} />
+                </div>
+                <div className="kpi-stats">
+                  <div className="kpi-stat"><span className="kpi-stat-num">{kpi.ideaCount}</span><span className="kpi-stat-label">아이디어</span></div>
+                  <div className="kpi-stat"><span className="kpi-stat-num" style={{ color: COLORS.success }}>{kpi.confirmedIdeas}</span><span className="kpi-stat-label">확정</span></div>
+                  <div className="kpi-stat"><span className="kpi-stat-num">{kpi.scheduledCount}</span><span className="kpi-stat-label">일정</span></div>
+                  <div className="kpi-stat"><span className="kpi-stat-num">{kpi.executedActions}</span><span className="kpi-stat-label">실행</span></div>
                 </div>
               </div>
             )
           })}
         </div>
-
-        {/* 해석 */}
-        <div style={{ marginTop: '20px', padding: '12px', background: '#1e2530', borderRadius: '8px', fontSize: '12px', color: '#a0aec0' }}>
-          <div style={{ fontWeight: 600, marginBottom: '8px' }}>📊 해석</div>
-          <div>
-            Execution Rate는 생성된 모든 행동(아이디어 + 일정) 대비 실제 실행된 행동의 비율입니다.
-            이 수치는 UX 문제, AI 품질, 구조 문제를 한 번에 판단할 수 있는 핵심 지표입니다.
-          </div>
-        </div>
       </div>
+      <style>{`
+        .page-shell { display: flex; flex-direction: column; min-height: 100dvh; background: ${COLORS.bg}; color: ${COLORS.text}; }
+        .page-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid ${COLORS.border}; }
+        .back-link { color: ${COLORS.accent}; text-decoration: none; font-size: 13px; }
+        .page-title { font-size: 15px; font-weight: 700; flex: 1; }
+        .btn-refresh { padding: 5px 12px; background: ${COLORS.surface}; color: ${COLORS.textSub}; border: 1px solid ${COLORS.border}; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .btn-refresh:hover { border-color: ${COLORS.accent}; color: ${COLORS.accent}; }
+        .page-body { flex: 1; overflow-y: auto; padding: 16px; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+        .kpi-card { background: ${COLORS.surface}; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; border-left: 3px solid ${COLORS.border}; }
+        .kpi-header { display: flex; align-items: center; gap: 8px; }
+        .kpi-name { font-size: 13px; font-weight: 700; flex: 1; }
+        .kpi-rate { font-size: 18px; font-weight: 800; }
+        .kpi-bar-bg { height: 6px; background: ${COLORS.border}; border-radius: 3px; overflow: hidden; }
+        .kpi-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+        .kpi-stats { display: flex; gap: 12px; }
+        .kpi-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
+        .kpi-stat-num { font-size: 16px; font-weight: 700; }
+        .kpi-stat-label { font-size: 9px; color: ${COLORS.muted}; }
+        @media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr; } .page-body { padding: 12px; } }
+      `}</style>
     </div>
   )
 }
