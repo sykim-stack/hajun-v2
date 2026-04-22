@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 
 const PROJECTS = [
   { id: '82423554-fa71-42cc-a297-90a65747113b', name: 'HajunAI', emoji: '🧠', color: '#ff9d00' },
@@ -116,16 +117,30 @@ export default function Home() {
         borderBottom: '1px solid #1e2530',
         display: 'flex',
         alignItems: 'center',
-        gap: '10px'
+        gap: '10px',
+        justifyContent: 'space-between'
       }}>
 
-        <span>🧠</span>
-
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700 }}>HajunAI Console</div>
-          <div style={{ fontSize: '10px', color: '#4a5568' }}>
-            BRAINPOOL SYSTEM
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+          <span>🧠</span>
+          <div>
+            <div style={{ fontWeight: 700 }}>HajunAI Console</div>
+            <div style={{ fontSize: '10px', color: '#4a5568' }}>
+              BRAINPOOL SYSTEM
+            </div>
           </div>
+        </div>
+
+        {/* 🔥 네비게이션 링크 */}
+        <div style={{ display: 'flex', gap: '8px', fontSize: '12px' }}>
+          <Link href="/" style={{ color: '#2563eb', textDecoration: 'none' }}>🏠 홈</Link>
+          <Link href="/ideas" style={{ color: '#e2e8f0', textDecoration: 'none' }}>💡 아이디어</Link>
+          <Link href="/contexts" style={{ color: '#e2e8f0', textDecoration: 'none' }}>📊 맥락</Link>
+          <Link href="/schedules" style={{ color: '#e2e8f0', textDecoration: 'none' }}>📅 일정</Link>
+          <Link href="/ai" style={{ color: '#e2e8f0', textDecoration: 'none' }}>🧠 AI</Link>
+          <Link href="/kpi" style={{ color: '#e2e8f0', textDecoration: 'none' }}>📈 KPI</Link>
+          <Link href="/health" style={{ color: '#e2e8f0', textDecoration: 'none' }}>🏥 헬스</Link>
+          <Link href="/settings" style={{ color: '#e2e8f0', textDecoration: 'none' }}>⚙️ 설정</Link>
         </div>
 
         {/* 🔥 토글 버튼 */}
@@ -137,7 +152,9 @@ export default function Home() {
               color: '#fff',
               padding: '4px 8px',
               borderRadius: '6px',
-              border: 'none'
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '12px'
             }}
           >
             🛠 Dev
@@ -150,7 +167,9 @@ export default function Home() {
               color: '#fff',
               padding: '4px 8px',
               borderRadius: '6px',
-              border: 'none'
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '12px'
             }}
           >
             📊 Control
@@ -162,8 +181,8 @@ export default function Home() {
       {/* 메시지 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
         {msgs.map((m, i) => (
-          <div key={i} style={{ marginBottom: '10px' }}>
-            {m.content}
+          <div key={i} style={{ marginBottom: '10px', whiteSpace: 'pre-wrap' }}>
+            <strong>{m.role === 'user' ? '👤 You' : '🤖 AI'}:</strong> {m.content}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -172,7 +191,9 @@ export default function Home() {
       {/* 입력 */}
       <div style={{
         padding: '12px',
-        borderTop: '1px solid #1e2530'
+        borderTop: '1px solid #1e2530',
+        display: 'flex',
+        gap: '8px'
       }}>
         <textarea 
           ref={inputRef}
@@ -185,9 +206,31 @@ export default function Home() {
             }
           }}
           rows={1}
-          style={{ width: '80%' }}
+          style={{ 
+            flex: 1,
+            padding: '8px',
+            background: '#1e2530',
+            color: '#e2e8f0',
+            border: '1px solid #2d3748',
+            borderRadius: '6px',
+            fontFamily: 'monospace'
+          }}
+          placeholder="메시지를 입력하세요..."
         />
-        <button onClick={send}>전송</button>
+        <button 
+          onClick={send}
+          disabled={loading}
+          style={{
+            background: loading ? '#4a5568' : '#2563eb',
+            color: '#fff',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            border: 'none',
+            cursor: loading ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {loading ? '...' : '전송'}
+        </button>
       </div>
 
     </div>
