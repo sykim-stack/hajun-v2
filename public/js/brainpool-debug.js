@@ -231,6 +231,7 @@
         <span class="bh-ttl">BRAINPOOL DEBUG v1.0</span>
         <button class="bt on" data-t="logs">LOG</button>
         <button class="bt"    data-t="api">API</button>
+        <button class="bx"   id="__bp_copy">📋</button>
         <button class="bx"   id="__bp_x">✕</button>
       </div>
       <div class="bb">
@@ -240,6 +241,7 @@
     document.body.appendChild(panel);
 
     document.getElementById('__bp_x').addEventListener('click', togglePanel);
+    document.getElementById('__bp_copy').addEventListener('click', copyLogs);
     panel.querySelectorAll('.bt').forEach(btn => {
       btn.addEventListener('click', () => {
         panel.querySelectorAll('.bt').forEach(b => b.classList.remove('on'));
@@ -285,6 +287,26 @@
       .map(([k, s]) =>
         `<div class="ba"><span class="k">${esc(k)}</span><span class="o">✓${s.ok}</span><span class="f">✗${s.fail}</span>${s.lastErr ? `<span class="er">${esc(s.lastErr)}</span>` : ''}</div>`
       ).join('') || '<div style="padding:10px;color:#484f58;">API 호출 없음</div>';
+  }
+
+  // ── 복사 ──────────────────────────────────────────────────
+  function copyLogs() {
+    const text = logs.map(l => `[${l.t}] [${l.type}] ${l.msg}`).join('\n');
+    const full  = `=== BRAINPOOL DEBUG LOG ===\n서비스: ${SERVICE}\n환경: ${getEnv()}\nURL: ${location.href}\n시각: ${new Date().toISOString()}\n\n${text}`;
+    navigator.clipboard.writeText(full).then(() => {
+      const btn = document.getElementById('__bp_copy');
+      if (!btn) return;
+      btn.textContent = '✅';
+      setTimeout(() => { btn.textContent = '📋'; }, 1500);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = full;
+      ta.style.cssText = 'position:fixed;opacity:0;';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
   }
 
   push('info', `[BRAINPOOL DEBUG v1.0] ${SERVICE} · ${getEnv()} · ${location.pathname}`, false);
